@@ -15,24 +15,27 @@ st.set_page_config(
 st.title("🎛️ CONVERSOR ADC PROFESIONAL")
 st.markdown("---")
 
-# Inicializar session state para forzar actualizaciones
+# Inicializar session state
 if 'recalcular' not in st.session_state:
     st.session_state.recalcular = False
 
-# Sidebar con configuración
+# Sidebar con configuración - ORDEN MODIFICADO
 with st.sidebar:
     st.header("⚙️ Configuración")
     
-    st.subheader("Variable de Campo")
-    min_val = st.number_input("Valor Mínimo", 0.0, 1000.0, 10.0)
-    max_val = st.number_input("Valor Máximo", 0.0, 1000.0, 100.0)
-    unidad = st.text_input("Unidades", "°C", key="unidad_input")  # KEY agregado
+    # 1. RANGO DE LA VARIABLE DE CAMPO
+    st.subheader("📊 Rango de la Variable de Campo")  # TEXTO MODIFICADO
+    min_val = st.number_input("Valor Mínimo", 0.0, 1000.0, 10.0, key="min_val")
+    max_val = st.number_input("Valor Máximo", 0.0, 1000.0, 100.0, key="max_val")
+    unidad = st.text_input("Unidades", "°C", key="unidad_input")
     
-    st.subheader("Configuración ADC")
-    bits = st.selectbox("Resolución", [8, 10, 12, 16, 24, 32], index=1, key="bits_input")
-    v_ref = st.number_input("Voltaje Referencia (V)", 1.0, 10.0, 5.0, key="vref_input")
+    # VALIDACIÓN CRÍTICA - Evitar error del slider
+    if min_val >= max_val:
+        st.error("❌ ERROR: El valor MÍNIMO debe ser MENOR que el MÁXIMO")
+        st.stop()  # Detener la ejecución hasta que se corrija
     
-    st.subheader("Señal de Entrada")
+    # 2. RANGO ELÉCTRICO DE LA VARIABLE DE ENTRADA - ORDEN MODIFICADO
+    st.subheader("🔌 Rango eléctrico de la Variable de campo")  # TEXTO MODIFICADO
     tipo_senal = st.selectbox(
         "Tipo de Señal",
         ['0-5V', '0-10V', '4-20mA', '0-20mA', '1-5V'],
@@ -40,9 +43,15 @@ with st.sidebar:
         key="senal_input"
     )
     
+    # 3. CONFIGURACIÓN ADC - ORDEN MODIFICADO (AHORA ES EL ÚLTIMO)
+    st.subheader("📟 Configuración ADC")
+    bits = st.selectbox("Cantidad de bits de conversión", [8, 10, 12, 16, 24, 32], index=1, key="bits_input")
+    v_ref = st.number_input("Voltaje Referencia (V)", 1.0, 10.0, 5.0, key="vref_input")
+    
+    # Slider con valores válidos
     valor_actual = st.slider(
-        f"Valor Actual ({unidad})",  # ¡Aquí SÍ usa la unidad actual!
-        min_val, max_val, (min_val + max_val) / 2,
+        f"Valor Actual ({unidad})",
+        float(min_val), float(max_val), float((min_val + max_val) / 2),
         key="valor_actual_input"
     )
     
@@ -104,7 +113,7 @@ with col1:
             valor_actual, min_val, max_val, tipo_senal, bits, v_ref
         )
         
-        # Mostrar resultados
+        # Mostrar resultados - ENCABEZADO MODIFICADO
         st.subheader("Resultados")
         col_res1, col_res2, col_res3, col_res4 = st.columns(4)
         
@@ -115,7 +124,7 @@ with col1:
         with col_res3:
             st.metric("% Variable", f"{porcentaje_variable:.1f}%")
         with col_res4:
-            st.metric("% Voltaje", f"{porcentaje_voltaje:.1f}%")
+            st.metric("% Voltaje de Referencia", f"{porcentaje_voltaje:.1f}%")  # TEXTO MODIFICADO
         
         # Representaciones numéricas
         st.subheader("Representaciones")
@@ -137,9 +146,8 @@ with col2:
     st.write(f"**Plotly:** {px.__version__ if hasattr(px, '__version__') else '6.3.1'}")
     st.write(f"**NumPy:** {np.__version__}")
 
-# Información técnica - VERSIÓN MEJORADA
-with st.expander("📋 Información Técnica", expanded=True):  # expanded=True para que siempre se vea
-    # CALCULAR CON LOS VALORES ACTUALES - USANDO LAS VARIABLES DEL SIDEBAR
+# Información técnica
+with st.expander("📋 Información Técnica", expanded=True):
     resolucion = v_ref / (2 ** bits)
     max_digital_calc = (2 ** bits) - 1
     combinaciones = 2 ** bits
@@ -148,12 +156,9 @@ with st.expander("📋 Información Técnica", expanded=True):  # expanded=True 
     st.write(f"**Error de Cuantización:** ±{resolucion/2:.8f} V")
     st.write(f"**Rango Digital:** 0 a {max_digital_calc}")
     st.write(f"**Combinaciones:** {combinaciones}")
-    
-    # Información específica de la señal - USANDO LAS VARIABLES ACTUALES
-    st.write(f"**Rango Variable:** {min_val} a {max_val} {unidad}")  # ¡Aquí SÍ usa la unidad actual!
+    st.write(f"**Rango Variable:** {min_val} a {max_val} {unidad}")
     st.write(f"**Tipo de Señal:** {tipo_senal}")
     
-    # Mostrar rangos de señal
     if tipo_senal == '1-5V':
         st.write(f"**Rango Voltaje:** 1V a 5V (0-100% variable)")
     elif tipo_senal == '4-20mA':
@@ -164,9 +169,6 @@ with st.expander("📋 Información Técnica", expanded=True):  # expanded=True 
         st.write(f"**Rango Voltaje:** 0V a 10V (0-100% variable)")
     elif tipo_senal == '0-20mA':
         st.write(f"**Rango Corriente:** 0mA a 20mA (0-100% variable)")
-    
-    # Estado actual de la configuración
-    st.info(f"**Configuración actual:** {bits} bits, {min_val}-{max_val} {unidad}, {tipo_senal}")
 
 # Tabla de referencia de bits
 with st.expander("🔢 Tabla de Referencia de Bits"):
@@ -178,26 +180,6 @@ with st.expander("🔢 Tabla de Referencia de Bits"):
     }
     df_bits = pd.DataFrame(referencia_bits)
     st.dataframe(df_bits, hide_index=True)
-
-# Ejemplo de uso dinámico
-with st.expander("💡 Ejemplo de Uso"):
-    # Calcular ejemplos con los valores actuales
-    ejemplo_min = calcular_conversion(min_val, min_val, max_val, tipo_senal, bits, v_ref)
-    ejemplo_max = calcular_conversion(max_val, min_val, max_val, tipo_senal, bits, v_ref)
-    ejemplo_medio = calcular_conversion((min_val + max_val) / 2, min_val, max_val, tipo_senal, bits, v_ref)
-    
-    st.write(f"""
-    **Para tu configuración actual:**
-    
-    **Valor {min_val} {unidad} (mínimo):**
-    - 0% variable → {ejemplo_min[1]:.2f}V → Digital: {ejemplo_min[0]}/{ejemplo_min[5]}
-    
-    **Valor {max_val} {unidad} (máximo):**
-    - 100% variable → {ejemplo_max[1]:.2f}V → Digital: {ejemplo_max[0]}/{ejemplo_max[5]}
-    
-    **Valor {(min_val + max_val) / 2:.1f} {unidad} (medio):**
-    - 50% variable → {ejemplo_medio[1]:.2f}V → Digital: {ejemplo_medio[0]}/{ejemplo_medio[5]}
-    """)
 
 st.markdown("---")
 st.caption("Desarrollado con Streamlit | Listo para GitHub 🚀")
